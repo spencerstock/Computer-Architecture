@@ -9,24 +9,29 @@ class CPU:
         """Construct a new CPU."""
         self.ram = [0] * 256
         self.registers = [0] * 8
-        self.pc = 0
+        self.registers[7] = 0xF4
+        pass
 
-    def load(self):
+    def load(self, path):
         """Load a program into memory."""
 
         address = 0
 
         # For now, we've just hardcoded a program:
+        program = []
+        try:
+            with open(path) as f:
+                for line in f:
+                    comment_split = line.split("#")
+                    num = comment_split[0].strip()
+                    if num != "":
+                        program.append(int(num, 2))
+                        
 
-        program = [
-            # From print8.ls8
-            0b10000010, # LDI R0,8
-            0b00000000,
-            0b00001000,
-            0b01000111, # PRN R0
-            0b00000000,
-            0b00000001, # HLT
-        ]
+        except FileNotFoundError:
+            print(f"{path} not found")
+            sys.exit(2)
+
 
         for instruction in program:
             self.ram[address] = instruction
@@ -37,7 +42,7 @@ class CPU:
         """ALU operations."""
 
         if op == "ADD":
-            self.registers[reg_a] += self.registers[reg_b]
+            self.reg[reg_a] += self.reg[reg_b]
         #elif op == "SUB": etc
         else:
             raise Exception("Unsupported ALU operation")
@@ -64,30 +69,45 @@ class CPU:
         ), end='')
 
         for i in range(8):
-            print(" %02X" % self.registers[i], end='')
+            print(" %02X" % self.reg[i], end='')
 
         print()
 
     def run(self):
         """Run the CPU."""
+        pc = 0
         running = True
 
         while running:
-            command = self.ram_read(self.pc)
+            command = self.ram_read(pc)
 
-            if command == 1: # Exit
+            if command == 0b00000001:
                 running = False
+                pc += 1
                 print("Halted")
                 sys.exit(1)
             
             elif command == 0b10000010:
-                reg = self.ram_read(self.pc + 1)
-                num = self.ram_read(self.pc + 2)
+                reg = self.ram_read(pc + 1)
+                num = self.ram_read(pc + 2)
                 self.registers[reg] = num
-                self.pc += 3
+                pc += 3
 
             elif command == 0b01000111:
-                reg = self.ram_read(self.pc + 1)
+                reg = self.ram_read(pc + 1)
                 num = self.registers[reg]
                 print(num)
-                self.pc += 2
+                pc += 2
+
+            elif command == 0b10100010:
+                reg_a = self.registers[self.ram_read(pc + 1)]
+                reg_b = self.registers[self.ram_read(pc + 2)]
+                self.registers[self.ram_read(pc + 1)] = reg_a * reg_b
+                pc += 3
+
+            else:
+                print(f"Unkown command {command}")
+                pc += 1
+                print(pc)
+        
+
